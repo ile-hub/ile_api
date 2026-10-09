@@ -6,7 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  PropertyRule,
   TenancyInterest,
+  TenancyInterestPropertySummary,
   TenancyInterestStatus,
 } from '@yourorg/ile-shared-types';
 import { DatabaseError } from 'pg';
@@ -22,7 +24,11 @@ interface TenancyInterestRow {
   landlord_interested_at: Date | null;
   matched_at: Date | null;
   created_at: Date;
+  viewer_is_renter: boolean;
   counterparty_display_name: string | null;
+  title: string | null;
+  description: string | null;
+  property_rules: PropertyRule[] | null;
   address_line1: string | null;
   city: string | null;
   postcode: string | null;
@@ -36,9 +42,12 @@ interface TenancyInterestRow {
 // blocked -- so the response doesn't reveal which side declined.
 const PAIRING_CLOSED = 'Interest can no longer be expressed for this pairing';
 
-// The enriched read used by every endpoint here. Exposes ONLY the other
-// party's display name and a property summary -- no evidence, pillar or
-// trust data is joined at all.
+// The enriched read used by every endpoint here. Two views of the same
+// row, chosen by which side the caller is on:
+//   - renter: the landlord's display name + the listing's details;
+//   - landlord: the renter's display name + a property summary
+//     (address/city/postcode, bedrooms, rent) -- no listing copy.
+// No evidence, pillar, trust or compatibility data is joined at all.
 //
 // Visibility is entirely RLS's job:
 //   - tenancy_interests' SELECT policy limits rows to the caller's own
@@ -58,9 +67,11 @@ const ENRICHED_SELECT = `
   SELECT ti.id, ti.renter_id, ti.property_id, ti.status,
          ti.renter_interested_at, ti.landlord_interested_at,
          ti.matched_at, ti.created_at,
+         ti.renter_id = $1 AS viewer_is_renter,
          CASE WHEN ti.renter_id = $1 THEN lp.display_name
               ELSE tenancy_interest_renter_display_name(ti.id)
          END AS counterparty_display_name,
+         p.title, p.description, p.property_rules,
          p.address_line1, p.city, p.postcode, p.bedrooms,
          p.rent_amount, p.currency
   FROM tenancy_interests ti
@@ -68,7 +79,7 @@ const ENRICHED_SELECT = `
   LEFT JOIN landlord_profiles lp ON lp.user_id = p.landlord_id`;
 
 function toTenancyInterest(row: TenancyInterestRow): TenancyInterest {
-  return {
+  const base = {
     id: row.id,
     renterId: row.renter_id,
     propertyId: row.property_id,
@@ -78,18 +89,41 @@ function toTenancyInterest(row: TenancyInterestRow): TenancyInterest {
     matchedAt: row.matched_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
     counterparty: { displayName: row.counterparty_display_name },
-    property:
-      row.address_line1 === null
-        ? null
-        : {
-            addressLine1: row.address_line1,
-            city: row.city!,
-            postcode: row.postcode!,
-            bedrooms: row.bedrooms!,
-            rentAmount: Number(row.rent_amount),
-            currency: row.currency!,
-          },
   };
+  // address_line1 is NOT NULL, so null here means the LEFT JOIN found no
+  // property the caller can see.
+  const summary: TenancyInterestPropertySummary | null =
+    row.address_line1 === null
+      ? null
+      : {
+          addressLine1: row.address_line1,
+          city: row.city!,
+          postcode: row.postcode!,
+          bedrooms: row.bedrooms!,
+          rentAmount: Number(row.rent_amount),
+          currency: row.currency!,
+        };
+
+  if (row.viewer_is_renter) {
+    return {
+      ...base,
+      viewerSide: 'renter',
+      property: summary && {
+        ...summary,
+        title: row.title,
+        description: row.description,
+        propertyRules: row.property_rules!,
+      },
+    };
+  }
+  if (!summary) {
+    // Unreachable: the SELECT policy only shows a landlord rows on their
+    // own properties, which they can always see.
+    throw new Error(
+      `landlord view of tenancy interest ${row.id} has no property`,
+    );
+  }
+  return { ...base, viewerSide: 'landlord', property: summary };
 }
 
 @Injectable()

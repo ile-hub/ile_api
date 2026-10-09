@@ -57,7 +57,9 @@ describe('Tenancy interests (e2e)', () => {
   }
 
   describe('expressing interest', () => {
-    it('renter -> pending, enriched with only the agreed fields', async () => {
+    // toEqual, not toMatchObject: any extra field in either view (e.g.
+    // trust or compatibility data) fails these.
+    it('renter view: listing details + landlord name, nothing else', async () => {
       const p = await property();
       const interest = await renterInterest(renter, p.id);
       expect(interest).toEqual({
@@ -69,7 +71,39 @@ describe('Tenancy interests (e2e)', () => {
         landlordInterestedAt: null,
         matchedAt: null,
         createdAt: expect.any(String),
+        viewerSide: 'renter',
         counterparty: { displayName: landlord.displayName },
+        property: {
+          title: 'Bright two-bed flat',
+          description: 'Close to the station.',
+          propertyRules: ['no_smoking'],
+          addressLine1: '12 Example Street',
+          city: 'Edinburgh',
+          postcode: 'EH1 1AA',
+          bedrooms: 2,
+          rentAmount: 1250.5,
+          currency: 'GBP',
+        },
+      });
+    });
+
+    it('landlord view: property summary + renter name, nothing else', async () => {
+      const p = await property();
+      const interest = await renterInterest(renter, p.id);
+      const res = await api(app, landlord)
+        .get(`/tenancy-interests/${interest.id}`)
+        .expect(200);
+      expect(res.body).toEqual({
+        id: interest.id,
+        renterId: renter.id,
+        propertyId: p.id,
+        status: 'pending',
+        renterInterestedAt: expect.any(String),
+        landlordInterestedAt: null,
+        matchedAt: null,
+        createdAt: expect.any(String),
+        viewerSide: 'landlord',
+        counterparty: { displayName: renter.displayName },
         property: {
           addressLine1: '12 Example Street',
           city: 'Edinburgh',
@@ -223,8 +257,10 @@ describe('Tenancy interests (e2e)', () => {
       expect(res.body[0]).toMatchObject({
         id: interest.id,
         status: 'pending',
+        viewerSide: 'landlord',
         counterparty: { displayName: renter.displayName },
       });
+      expect(res.body[0].property).not.toHaveProperty('title');
     });
 
     it('validates ids and filters', async () => {

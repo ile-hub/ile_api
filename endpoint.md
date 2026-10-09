@@ -166,11 +166,17 @@ There is no "Shortlist" or third/intermediate state.
 | GET | `/tenancy-interests/:id` | One row the caller is a party to | Renter or Landlord (owner) | **Built** |
 | GET | `/properties/:propertyId/tenancy-interests?status=` | One property's rows, `pending` by default — this IS the Applicants list | Landlord (owner) | **Built** |
 
-Every response is a `TenancyInterest`: the row's ids/status/timestamps, plus
-`counterparty.displayName` (the other party) and `property` (`addressLine1`, `city`,
-`postcode`, `bedrooms`, `rentAmount`, `currency`). No evidence, pillar or trust data.
-`property` is `null` if the caller can no longer see it (e.g. a renter, after the
-listing was archived).
+Every response is a `TenancyInterest`: the row's ids/status/timestamps plus a
+view that depends on which side the caller is on (`viewerSide`):
+- **Renter view** (`viewerSide: 'renter'`): `counterparty.displayName` = the
+  landlord's name; `property` = listing details (`title`, `description`,
+  `propertyRules`, `addressLine1`, `city`, `postcode`, `bedrooms`, `rentAmount`,
+  `currency`), or `null` if the listing was archived after they expressed interest.
+- **Landlord view** (`viewerSide: 'landlord'`): `counterparty.displayName` = the
+  renter's name; `property` = summary only (`addressLine1`, `city`, `postcode`,
+  `bedrooms`, `rentAmount`, `currency`).
+
+No evidence, pillar, trust or compatibility data in either view.
 
 **Declined rows are visible only to the side that declined them** — enforced by RLS,
 not just the API. Re-expressing interest on a declined pairing returns the same 409
