@@ -1,17 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import type {
+  EvidenceItem,
+  EvidenceStatus,
+  TrustPillar,
+} from '@yourorg/ile-shared-types';
 import { RequestContextService } from '../common/request-context.service';
 
-export type TrustPillar =
-  'community' | 'affordability' | 'reliability' | 'stability';
-
-export interface EvidenceItem {
+interface EvidenceRow {
   id: string;
   renter_id: string;
   pillar: TrustPillar;
   pathway_type: string;
-  payload: unknown;
-  status: string;
-  created_at: string;
+  payload: Record<string, unknown>;
+  status: EvidenceStatus;
+  created_at: Date;
+}
+
+const COLUMNS =
+  'id, renter_id, pillar, pathway_type, payload, status, created_at';
+
+function toEvidenceItem(row: EvidenceRow): EvidenceItem {
+  return {
+    id: row.id,
+    renterId: row.renter_id,
+    pillar: row.pillar,
+    pathwayType: row.pathway_type,
+    payload: row.payload,
+    status: row.status,
+    createdAt: row.created_at.toISOString(),
+  };
 }
 
 @Injectable()
@@ -27,17 +44,23 @@ export class EvidenceService {
   async submitEvidence(
     pillar: TrustPillar,
     pathwayType: string,
-    payload: unknown,
+    payload: Record<string, unknown>,
   ): Promise<EvidenceItem> {
+    // Checked up front only for a clean 403: without it a landlord's
+    // insert still fails, but as an FK violation (no renter_profiles row)
+    // that would surface as a 500.
+    if ((await this.requestContext.getRole()) !== 'renter') {
+      throw new ForbiddenException('Only renters can submit evidence');
+    }
     const client = this.requestContext.getClient();
     const userId = this.requestContext.getUserId();
-    const result = await client.query<EvidenceItem>(
+    const result = await client.query<EvidenceRow>(
       `INSERT INTO evidence_items (renter_id, pillar, pathway_type, payload)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, renter_id, pillar, pathway_type, payload, status, created_at`,
+       RETURNING ${COLUMNS}`,
       [userId, pillar, pathwayType, JSON.stringify(payload)],
     );
-    return result.rows[0];
+    return toEvidenceItem(result.rows[0]);
   }
 
   async listOwnEvidence(): Promise<EvidenceItem[]> {
@@ -47,12 +70,12 @@ export class EvidenceService {
     // RLS were ever disabled or misconfigured, this endpoint would start
     // returning every renter's evidence, which is exactly the failure
     // mode the earlier BYPASSRLS check exists to catch.
-    const result = await client.query<EvidenceItem>(
-      `SELECT id, renter_id, pillar, pathway_type, payload, status, created_at
+    const result = await client.query<EvidenceRow>(
+      `SELECT ${COLUMNS}
        FROM evidence_items
        ORDER BY created_at DESC`,
     );
-    return result.rows;
+    return result.rows.map(toEvidenceItem);
   }
 
   // The ONLY status transition exposed to a renter at all -- there is no
@@ -68,27 +91,28 @@ export class EvidenceService {
   // withdrawn item or "un-verifying" a verified one) -- RLS's UPDATE
   // policy only enforces ownership (renter_id = session), it can't
   // express old-value-dependent rules, so that check has to live here.
-  // See the open decision on whether this also needs a DB-level trigger.
+  // The same rule is also enforced at the DB by
+  // evidence_items_enforce_status_transition.
   async withdrawEvidence(id: string): Promise<EvidenceItem | undefined> {
     const client = this.requestContext.getClient();
-    const result = await client.query<EvidenceItem>(
+    const result = await client.query<EvidenceRow>(
       `UPDATE evidence_items
        SET status = 'withdrawn'
        WHERE id = $1 AND status = 'submitted'
-       RETURNING id, renter_id, pillar, pathway_type, payload, status, created_at`,
+       RETURNING ${COLUMNS}`,
       [id],
     );
     // Zero rows is ambiguous on purpose (same reasoning as
     // getEvidenceById): doesn't exist, isn't yours, or isn't in
     // 'submitted' state -- the caller can't distinguish, and shouldn't
     // be able to.
-    return result.rows[0];
+    return result.rows[0] && toEvidenceItem(result.rows[0]);
   }
 
   async getEvidenceById(id: string): Promise<EvidenceItem | undefined> {
     const client = this.requestContext.getClient();
-    const result = await client.query<EvidenceItem>(
-      `SELECT id, renter_id, pillar, pathway_type, payload, status, created_at
+    const result = await client.query<EvidenceRow>(
+      `SELECT ${COLUMNS}
        FROM evidence_items
        WHERE id = $1`,
       [id],
@@ -96,6 +120,6 @@ export class EvidenceService {
     // Zero rows here is indistinguishable, from the app's point of view,
     // between "doesn't exist" and "exists but RLS hid it" -- which is
     // exactly the point: the API shouldn't leak which case it is.
-    return result.rows[0];
+    return result.rows[0] && toEvidenceItem(result.rows[0]);
   }
 }

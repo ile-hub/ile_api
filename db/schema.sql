@@ -387,19 +387,123 @@ CREATE TABLE matches (
 -- PROPERTIES & APPLICATIONS
 -- ----------------------------------------------------------------------------
 
+CREATE TYPE property_status AS ENUM ('draft', 'published', 'archived');
+
 CREATE TABLE properties (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     landlord_id         uuid NOT NULL REFERENCES landlord_profiles(user_id),
+    title               text,                 -- optional listing copy
+    description         text,
     address_line1        text NOT NULL,
     city                text NOT NULL,
     postcode            text NOT NULL,
     location             geography(Point, 4326),
-    bedrooms            int NOT NULL,
-    rent_amount          numeric(10,2) NOT NULL,
+    bedrooms            int NOT NULL CONSTRAINT properties_bedrooms_range CHECK (bedrooms BETWEEN 0 AND 20),
+    rent_amount          numeric(10,2) NOT NULL CONSTRAINT properties_rent_positive CHECK (rent_amount > 0),
     currency            text NOT NULL DEFAULT 'GBP',
-    status              text NOT NULL DEFAULT 'draft',
-    created_at          timestamptz NOT NULL DEFAULT now()
+    property_rules       text[] NOT NULL DEFAULT '{}'
+                         CONSTRAINT properties_rules_known
+                         CHECK (property_rules <@ ARRAY['no_smoking', 'no_pets', 'sharers_ok']::text[]),
+    status              property_status NOT NULL DEFAULT 'draft',
+    published_at         timestamptz,          -- stamped by the status trigger, never client-supplied
+    archived_at          timestamptz,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now()
 );
+-- Columns match what ile-app's AddEditPropertyScreen collects. Not added
+-- (no screen collects them): property_type, available_from. Tenancy
+-- length lives on landlord_preferences (a matching preference, not a
+-- listing attribute); "pets allowed" is the 'no_pets' rule, not a second
+-- boolean. property_rules holds slugs, not display labels.
+
+-- Status lifecycle: draft -> published, draft|published -> archived.
+-- Nothing leaves archived, nothing returns to draft. Only reachable via
+-- the API's named publish/archive actions; this trigger makes it hold
+-- for every connection, and stamps published_at/archived_at.
+CREATE OR REPLACE FUNCTION properties_enforce_status_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.status = OLD.status THEN
+        RETURN NEW;
+    END IF;
+
+    IF OLD.status = 'draft' AND NEW.status = 'published' THEN
+        NEW.published_at := now();
+        RETURN NEW;
+    END IF;
+
+    IF OLD.status IN ('draft', 'published') AND NEW.status = 'archived' THEN
+        NEW.archived_at := now();
+        RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION
+        'properties: illegal status transition % -> % (id=%)',
+        OLD.status, NEW.status, OLD.id
+        USING ERRCODE = 'check_violation';
+END;
+$$;
+
+CREATE TRIGGER properties_status_transition
+    BEFORE UPDATE OF status ON properties
+    FOR EACH ROW
+    EXECUTE FUNCTION properties_enforce_status_transition();
+
+CREATE OR REPLACE FUNCTION properties_touch_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at := now();
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER properties_touch_updated_at
+    BEFORE UPDATE ON properties
+    FOR EACH ROW
+    EXECUTE FUNCTION properties_touch_updated_at();
+
+-- RLS: landlord has full CRUD on their own rows; a renter can SELECT
+-- published rows only (drafts/archived are invisible, not just filtered
+-- by the API). Other landlords see nothing of each other's listings.
+-- New rows must start as drafts.
+ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY landlord_sees_own_properties ON properties
+    FOR SELECT
+    USING (landlord_id = current_setting('app.current_user_id', true)::uuid);
+
+CREATE POLICY landlord_inserts_own_property ON properties
+    FOR INSERT
+    WITH CHECK (
+        landlord_id = current_setting('app.current_user_id', true)::uuid
+        AND status = 'draft'
+    );
+
+CREATE POLICY landlord_updates_own_property ON properties
+    FOR UPDATE
+    USING (landlord_id = current_setting('app.current_user_id', true)::uuid)
+    WITH CHECK (landlord_id = current_setting('app.current_user_id', true)::uuid);
+
+-- No DELETE route exists (archive is the user-facing action); FKs still
+-- block deleting a property anything refers to.
+CREATE POLICY landlord_deletes_own_property ON properties
+    FOR DELETE
+    USING (landlord_id = current_setting('app.current_user_id', true)::uuid);
+
+CREATE POLICY renter_sees_published_properties ON properties
+    FOR SELECT
+    USING (
+        status = 'published'
+        AND EXISTS (
+            SELECT 1 FROM users u
+            WHERE u.id = current_setting('app.current_user_id', true)::uuid
+              AND u.role = 'renter'
+        )
+    );
 
 ALTER TABLE matches ADD CONSTRAINT matches_property_fk
     FOREIGN KEY (property_id) REFERENCES properties(id);
@@ -419,6 +523,294 @@ CREATE TABLE applications (
 -- Reasoning: both trust_profile_id and match_id are snapshots, same logic
 -- as v1's score_snapshot_id — even if either changes later, you can
 -- always reconstruct exactly what the landlord saw when they decided.
+
+
+-- ----------------------------------------------------------------------------
+-- MUTUAL MATCHING — NEW, human-driven, distinct from `matches` above
+-- ----------------------------------------------------------------------------
+-- `matches` (above) is the system-computed compatibility score, entirely
+-- unaffected by this. tenancy_interests instead tracks whether a renter
+-- and a landlord have EACH independently expressed real interest in the
+-- same pairing — two humans acting, not an algorithm scoring.
+
+CREATE TYPE tenancy_interest_status AS ENUM ('pending', 'matched', 'declined', 'withdrawn');
+
+CREATE TABLE tenancy_interests (
+    id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    renter_id               uuid NOT NULL REFERENCES renter_profiles(user_id),
+    property_id             uuid NOT NULL REFERENCES properties(id),
+    renter_interested_at    timestamptz,          -- null until the renter acts
+    landlord_interested_at  timestamptz,          -- null until the landlord acts
+    status                  tenancy_interest_status NOT NULL DEFAULT 'pending',
+    declined_by             text CHECK (declined_by IN ('renter', 'landlord')),
+    matched_at               timestamptz,
+    created_at               timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (renter_id, property_id)               -- one row per pair, ever
+);
+-- 'withdrawn' exists in the enum but is unreached by any endpoint today
+-- — only two actions exist (express interest, decline), matching
+-- evidence_status' 'verified'/'rejected' being unreachable until a
+-- reviewer module exists: flagged, not built speculatively.
+
+-- Auto-match trigger, enforced at the DB level rather than application
+-- code — same reasoning as evidence_items_enforce_status_transition. A
+-- BEFORE UPDATE trigger so it can mutate NEW in place before the row is
+-- written. Guarding on NEW.status = 'pending' matters: without it, a
+-- party touching an already-DECLINED row's timestamp could silently
+-- flip a declined pairing back to 'matched' just because both
+-- timestamps end up non-null — this only ever promotes pending ->
+-- matched, never overrides a decline.
+CREATE OR REPLACE FUNCTION tenancy_interests_auto_match()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.status = 'pending'
+       AND NEW.renter_interested_at IS NOT NULL
+       AND NEW.landlord_interested_at IS NOT NULL THEN
+        NEW.status := 'matched';
+        NEW.matched_at := now();
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER tenancy_interests_auto_match_trigger
+    BEFORE UPDATE ON tenancy_interests
+    FOR EACH ROW
+    EXECUTE FUNCTION tenancy_interests_auto_match();
+
+-- RLS: each row is jointly "owned" by two different parties (the
+-- renter, and whichever landlord owns property_id) — unlike every other
+-- policy in this file so far, which scopes to exactly one party. Either
+-- side may read and write their own pairing, with one exception: a
+-- DECLINED row is visible (and updatable) only to the side that declined
+-- it, so a decline is silent to the other party at the database level.
+-- No DELETE policy — rows are never deleted, decline only ever sets
+-- status.
+ALTER TABLE tenancy_interests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY renter_or_landlord_sees_tenancy_interest ON tenancy_interests
+    FOR SELECT
+    USING (
+        (
+            renter_id = current_setting('app.current_user_id', true)::uuid
+            AND (status <> 'declined' OR declined_by = 'renter')
+        )
+        OR (
+            EXISTS (
+                SELECT 1 FROM properties p
+                WHERE p.id = tenancy_interests.property_id
+                  AND p.landlord_id = current_setting('app.current_user_id', true)::uuid
+            )
+            AND (status <> 'declined' OR declined_by = 'landlord')
+        )
+    );
+
+-- Covers both creation paths: a renter creating their own first row, and
+-- a landlord creating a row for a specific applicant on a property they
+-- own (landlord-initiated interest, before the renter has ever acted).
+CREATE POLICY renter_or_landlord_inserts_tenancy_interest ON tenancy_interests
+    FOR INSERT
+    WITH CHECK (
+        renter_id = current_setting('app.current_user_id', true)::uuid
+        OR EXISTS (
+            SELECT 1 FROM properties p
+            WHERE p.id = property_id
+              AND p.landlord_id = current_setting('app.current_user_id', true)::uuid
+        )
+    );
+
+CREATE POLICY renter_or_landlord_updates_tenancy_interest ON tenancy_interests
+    FOR UPDATE
+    USING (
+        (
+            renter_id = current_setting('app.current_user_id', true)::uuid
+            AND (status <> 'declined' OR declined_by = 'renter')
+        )
+        OR (
+            EXISTS (
+                SELECT 1 FROM properties p
+                WHERE p.id = tenancy_interests.property_id
+                  AND p.landlord_id = current_setting('app.current_user_id', true)::uuid
+            )
+            AND (status <> 'declined' OR declined_by = 'landlord')
+        )
+    )
+    WITH CHECK (
+        renter_id = current_setting('app.current_user_id', true)::uuid
+        OR EXISTS (
+            SELECT 1 FROM properties p
+            WHERE p.id = tenancy_interests.property_id
+              AND p.landlord_id = current_setting('app.current_user_id', true)::uuid
+        )
+    );
+
+-- Who may write what. RLS decides whether a caller may touch a row; it
+-- can't decide WHICH columns each side may change, or which status
+-- transitions are legal, because a policy only sees one version of the
+-- row. This trigger sees OLD, NEW and the caller (app.current_user_id):
+--   - id, renter_id, property_id, created_at are immutable;
+--   - each side sets only its own interest timestamp, once (NULL ->
+--     value), and only while the property is published;
+--   - pending -> matched only with both timestamps set (i.e. via
+--     auto-match), pending|matched -> declined only with declined_by =
+--     the caller's side; nothing leaves declined/withdrawn;
+--   - INSERT starts pending with only the inserting side's timestamp.
+-- It must fire AFTER tenancy_interests_auto_match_trigger (same-event
+-- BEFORE triggers fire in name order: "..._auto_match_trigger" <
+-- "..._enforce_write_rules"). Roles other than app_user with no
+-- app.current_user_id (migrations, seeds) are let through; app_user
+-- without it fails closed.
+CREATE OR REPLACE FUNCTION tenancy_interests_enforce_write_rules()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    caller uuid := nullif(current_setting('app.current_user_id', true), '')::uuid;
+    caller_side text;
+    own_col_newly_set boolean;
+    prop_status property_status;
+BEGIN
+    IF caller IS NULL THEN
+        IF current_user = 'app_user' THEN
+            RAISE EXCEPTION 'tenancy_interests: app.current_user_id is not set'
+                USING ERRCODE = 'insufficient_privilege';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE' AND (
+        NEW.id IS DISTINCT FROM OLD.id
+        OR NEW.renter_id IS DISTINCT FROM OLD.renter_id
+        OR NEW.property_id IS DISTINCT FROM OLD.property_id
+        OR NEW.created_at IS DISTINCT FROM OLD.created_at
+    ) THEN
+        RAISE EXCEPTION 'tenancy_interests: id/renter_id/property_id/created_at are immutable (id=%)', OLD.id
+            USING ERRCODE = 'check_violation';
+    END IF;
+
+    -- Runs as the caller, so this lookup is itself RLS-scoped: a landlord
+    -- only ever finds their own property here.
+    IF caller = NEW.renter_id THEN
+        caller_side := 'renter';
+    ELSIF EXISTS (
+        SELECT 1 FROM properties p
+        WHERE p.id = NEW.property_id AND p.landlord_id = caller
+    ) THEN
+        caller_side := 'landlord';
+    ELSE
+        RAISE EXCEPTION 'tenancy_interests: caller is not a party to this pairing'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status <> 'pending' OR NEW.declined_by IS NOT NULL OR NEW.matched_at IS NOT NULL THEN
+            RAISE EXCEPTION 'tenancy_interests: a new row must start pending'
+                USING ERRCODE = 'check_violation';
+        END IF;
+        IF (caller_side = 'renter' AND (NEW.renter_interested_at IS NULL OR NEW.landlord_interested_at IS NOT NULL))
+           OR (caller_side = 'landlord' AND (NEW.landlord_interested_at IS NULL OR NEW.renter_interested_at IS NOT NULL)) THEN
+            RAISE EXCEPTION 'tenancy_interests: a % may only set their own interest timestamp', caller_side
+                USING ERRCODE = 'check_violation';
+        END IF;
+        own_col_newly_set := true;
+    ELSE
+        IF caller_side = 'renter' THEN
+            IF NEW.landlord_interested_at IS DISTINCT FROM OLD.landlord_interested_at
+               OR (OLD.renter_interested_at IS NOT NULL
+                   AND NEW.renter_interested_at IS DISTINCT FROM OLD.renter_interested_at) THEN
+                RAISE EXCEPTION 'tenancy_interests: a renter may only set renter_interested_at, once (id=%)', OLD.id
+                    USING ERRCODE = 'check_violation';
+            END IF;
+            own_col_newly_set := OLD.renter_interested_at IS NULL AND NEW.renter_interested_at IS NOT NULL;
+        ELSE
+            IF NEW.renter_interested_at IS DISTINCT FROM OLD.renter_interested_at
+               OR (OLD.landlord_interested_at IS NOT NULL
+                   AND NEW.landlord_interested_at IS DISTINCT FROM OLD.landlord_interested_at) THEN
+                RAISE EXCEPTION 'tenancy_interests: a landlord may only set landlord_interested_at, once (id=%)', OLD.id
+                    USING ERRCODE = 'check_violation';
+            END IF;
+            own_col_newly_set := OLD.landlord_interested_at IS NULL AND NEW.landlord_interested_at IS NOT NULL;
+        END IF;
+    END IF;
+
+    IF own_col_newly_set THEN
+        -- RLS-scoped again: a renter sees the property only if published,
+        -- so "not found" and "not published" both land here.
+        SELECT p.status INTO prop_status FROM properties p WHERE p.id = NEW.property_id;
+        IF prop_status IS DISTINCT FROM 'published' THEN
+            RAISE EXCEPTION 'tenancy_interests: interest can only be expressed in a published property'
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.status = OLD.status THEN
+        IF NEW.declined_by IS DISTINCT FROM OLD.declined_by
+           OR NEW.matched_at IS DISTINCT FROM OLD.matched_at THEN
+            RAISE EXCEPTION 'tenancy_interests: declined_by/matched_at change only with status (id=%)', OLD.id
+                USING ERRCODE = 'check_violation';
+        END IF;
+        IF OLD.status IN ('declined', 'withdrawn') AND own_col_newly_set THEN
+            RAISE EXCEPTION 'tenancy_interests: pairing is closed (id=%)', OLD.id
+                USING ERRCODE = 'check_violation';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF OLD.status = 'pending' AND NEW.status = 'matched'
+       AND NEW.renter_interested_at IS NOT NULL
+       AND NEW.landlord_interested_at IS NOT NULL
+       AND NEW.matched_at IS NOT NULL
+       AND NEW.declined_by IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF OLD.status IN ('pending', 'matched') AND NEW.status = 'declined'
+       AND NEW.declined_by = caller_side
+       AND NEW.matched_at IS NOT DISTINCT FROM OLD.matched_at THEN
+        RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION
+        'tenancy_interests: illegal transition % -> % by % (id=%)',
+        OLD.status, NEW.status, caller_side, OLD.id
+        USING ERRCODE = 'check_violation';
+END;
+$$;
+
+CREATE TRIGGER tenancy_interests_enforce_write_rules
+    BEFORE INSERT OR UPDATE ON tenancy_interests
+    FOR EACH ROW
+    EXECUTE FUNCTION tenancy_interests_enforce_write_rules();
+
+-- A landlord needs the display name of renters who expressed interest,
+-- but renter_profiles' landlord policy only covers `applications`, and
+-- widening it would expose the whole row (date_of_birth, bio, ...). This
+-- SECURITY DEFINER function returns that one column, only to the
+-- landlord on a row they're allowed to see.
+CREATE OR REPLACE FUNCTION tenancy_interest_renter_display_name(p_interest_id uuid)
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT rp.display_name
+    FROM tenancy_interests ti
+    JOIN properties p ON p.id = ti.property_id
+    JOIN renter_profiles rp ON rp.user_id = ti.renter_id
+    WHERE ti.id = p_interest_id
+      AND p.landlord_id = nullif(current_setting('app.current_user_id', true), '')::uuid
+      AND (ti.status <> 'declined' OR ti.declined_by = 'landlord');
+$$;
+
+REVOKE ALL ON FUNCTION tenancy_interest_renter_display_name(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION tenancy_interest_renter_display_name(uuid) TO app_user;
 
 
 -- ----------------------------------------------------------------------------
@@ -632,6 +1024,9 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO app_user;
 -- REVOKE of both, even though DELETE was never granted above, so intent
 -- is unambiguous and survives any future blanket GRANT.
 REVOKE UPDATE, DELETE ON audit_log FROM app_user;
+
+-- DELETE on properties only, so landlord_deletes_own_property is reachable.
+GRANT DELETE ON properties TO app_user;
 
 -- Keeps the grant applying to tables added by later migrations too, so
 -- this doesn't silently drift as the schema grows.
