@@ -293,10 +293,17 @@ describe('Properties (e2e)', () => {
     const count = (userId: string, id: string) =>
       db.outcome(userId, 'SELECT 1 FROM properties WHERE id = $1', [id]);
 
-    it('SELECT: owner sees draft; renter sees only published; other landlord sees neither', async () => {
+    it('SELECT: raw property rows are owner-only; renters use safe projections', async () => {
       expect(await count(landlord.id, draftId)).toBe('ok:1');
       expect(await count(renter.id, draftId)).toBe('ok:0');
-      expect(await count(renter.id, publishedId)).toBe('ok:1');
+      expect(await count(renter.id, publishedId)).toBe('ok:0');
+      expect(
+        await db.outcome(
+          renter.id,
+          'SELECT 1 WHERE leri_public_property($1) IS NOT NULL',
+          [publishedId],
+        ),
+      ).toBe('ok:1');
       expect(await count(otherLandlord.id, draftId)).toBe('ok:0');
       expect(await count(otherLandlord.id, publishedId)).toBe('ok:0');
     });

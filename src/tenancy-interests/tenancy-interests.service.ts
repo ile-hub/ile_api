@@ -56,11 +56,11 @@ const PAIRING_CLOSED = 'Interest can no longer be expressed for this pairing';
 //   - properties is a LEFT JOIN because a renter can only see published
 //     properties; an interest in a since-archived listing still comes
 //     back, with property: null.
-//   - The counterparty name is the landlord's (landlord_profiles has no
-//     RLS) when the caller is the renter, and comes from
-//     tenancy_interest_renter_display_name() when the caller is the
-//     landlord -- renter_profiles' own RLS doesn't let the landlord read
-//     it, and that function returns that one column and nothing else.
+//   - The counterparty name comes from a narrow SECURITY DEFINER function
+//     for each side -- tenancy_interest_landlord_display_name() for the
+//     renter, tenancy_interest_renter_display_name() for the landlord --
+//     because neither side can read the other's profile table under RLS.
+//     Each returns that one column and nothing else.
 //
 // $1 is always the caller's id.
 const ENRICHED_SELECT = `
@@ -68,17 +68,31 @@ const ENRICHED_SELECT = `
          ti.renter_interested_at, ti.landlord_interested_at,
          ti.matched_at, ti.created_at,
          ti.renter_id = $1 AS viewer_is_renter,
-         CASE WHEN ti.renter_id = $1 THEN lp.display_name
+         CASE WHEN ti.renter_id = $1 THEN tenancy_interest_landlord_display_name(ti.id)
               ELSE tenancy_interest_renter_display_name(ti.id)
          END AS counterparty_display_name,
-         p.title, p.description, p.property_rules,
-         p.address_line1, p.city, p.postcode, p.bedrooms,
-         p.rent_amount, p.currency
+         CASE WHEN ti.renter_id=$1 THEN pub.title ELSE p.title END AS title,
+         CASE WHEN ti.renter_id=$1 THEN pub.description ELSE p.description END AS description,
+         CASE WHEN ti.renter_id=$1 THEN ARRAY(SELECT jsonb_array_elements_text(pub."propertyRules")) ELSE p.property_rules END AS property_rules,
+         p.address_line1, p.postcode,
+         CASE WHEN ti.renter_id=$1 THEN pub.city ELSE p.city END AS city,
+         CASE WHEN ti.renter_id=$1 THEN pub.bedrooms ELSE p.bedrooms END AS bedrooms,
+         CASE WHEN ti.renter_id=$1 THEN pub."rentAmount" ELSE p.rent_amount END AS rent_amount,
+         CASE WHEN ti.renter_id=$1 THEN pub.currency ELSE p.currency END AS currency
   FROM tenancy_interests ti
   LEFT JOIN properties p ON p.id = ti.property_id
-  LEFT JOIN landlord_profiles lp ON lp.user_id = p.landlord_id`;
+  LEFT JOIN LATERAL jsonb_to_record(leri_public_property(ti.property_id)) AS pub(title text,description text,city text,bedrooms integer,"rentAmount" numeric,currency text,"propertyRules" jsonb) ON ti.renter_id=$1`;
 
-function toTenancyInterest(row: TenancyInterestRow): TenancyInterest {
+export type PrivacySafeInterest = Omit<TenancyInterest, 'property'> & {
+  property:
+    | (Partial<TenancyInterestPropertySummary> & {
+        title?: string | null;
+        description?: string | null;
+        propertyRules?: PropertyRule[];
+      })
+    | null;
+};
+function toTenancyInterest(row: TenancyInterestRow): PrivacySafeInterest {
   const base = {
     id: row.id,
     renterId: row.renter_id,
@@ -92,13 +106,14 @@ function toTenancyInterest(row: TenancyInterestRow): TenancyInterest {
   };
   // address_line1 is NOT NULL, so null here means the LEFT JOIN found no
   // property the caller can see.
-  const summary: TenancyInterestPropertySummary | null =
-    row.address_line1 === null
+  const summary: Partial<TenancyInterestPropertySummary> | null =
+    row.city === null
       ? null
       : {
-          addressLine1: row.address_line1,
-          city: row.city!,
-          postcode: row.postcode!,
+          ...(!row.viewer_is_renter
+            ? { addressLine1: row.address_line1!, postcode: row.postcode! }
+            : {}),
+          city: row.city,
           bedrooms: row.bedrooms!,
           rentAmount: Number(row.rent_amount),
           currency: row.currency!,
@@ -144,7 +159,7 @@ export class TenancyInterestsService {
   async expressInterest(
     propertyId: string,
     renterIdFromBody?: string,
-  ): Promise<TenancyInterest> {
+  ): Promise<PrivacySafeInterest> {
     const client = this.requestContext.getClient();
     const callerId = this.requestContext.getUserId();
     const role = await this.requestContext.getRole();
@@ -157,14 +172,20 @@ export class TenancyInterestsService {
       }
       // 404, not 403 -- doesn't confirm whether the property exists at
       // all vs. exists but isn't theirs.
-      const owned = await client.query<{ status: string }>(
-        'SELECT status FROM properties WHERE id = $1 AND landlord_id = $2',
+      const owned = await client.query<{
+        status: string;
+        availability_status: string;
+      }>(
+        'SELECT status,availability_status FROM properties WHERE id = $1 AND landlord_id = $2',
         [propertyId, callerId],
       );
       if (owned.rowCount === 0) {
         throw new NotFoundException();
       }
-      if (owned.rows[0].status !== 'published') {
+      if (
+        owned.rows[0].status !== 'published' ||
+        owned.rows[0].availability_status !== 'available'
+      ) {
         throw new ConflictException(
           'Interest can only be expressed on a published property',
         );
@@ -199,7 +220,7 @@ export class TenancyInterestsService {
     // RLS shows a renter published properties only, so a draft, archived
     // or nonexistent property are all the same 404 here.
     const visible = await client.query(
-      'SELECT 1 FROM properties WHERE id = $1',
+      'SELECT 1 WHERE leri_public_property($1) IS NOT NULL',
       [propertyId],
     );
     if (visible.rowCount === 0) {
@@ -227,7 +248,7 @@ export class TenancyInterestsService {
     propertyId: string,
     renterId: string,
     column: 'renter_interested_at' | 'landlord_interested_at',
-  ): Promise<TenancyInterest> {
+  ): Promise<PrivacySafeInterest> {
     const client = this.requestContext.getClient();
     let id: string | undefined;
     try {
@@ -262,7 +283,7 @@ export class TenancyInterestsService {
   // condition matched, not supplied by the caller. The ownership check
   // duplicates RLS on purpose (defense in depth): this query is correct
   // even if RLS were ever misconfigured.
-  async decline(id: string): Promise<TenancyInterest> {
+  async decline(id: string): Promise<PrivacySafeInterest> {
     const client = this.requestContext.getClient();
     const callerId = this.requestContext.getUserId();
 
@@ -291,7 +312,7 @@ export class TenancyInterestsService {
     return this.getById(id);
   }
 
-  async getById(id: string): Promise<TenancyInterest> {
+  async getById(id: string): Promise<PrivacySafeInterest> {
     const client = this.requestContext.getClient();
     const result = await client.query<TenancyInterestRow>(
       `${ENRICHED_SELECT} WHERE ti.id = $2`,
@@ -307,7 +328,7 @@ export class TenancyInterestsService {
   // every interest across a landlord's properties. No status = everything
   // except declined; ?status=declined returns only rows the CALLER
   // declined (RLS hides the rest).
-  async listMine(status?: ListableStatus): Promise<TenancyInterest[]> {
+  async listMine(status?: ListableStatus): Promise<PrivacySafeInterest[]> {
     const client = this.requestContext.getClient();
     const result = await client.query<TenancyInterestRow>(
       `${ENRICHED_SELECT}
@@ -326,7 +347,7 @@ export class TenancyInterestsService {
   async listForProperty(
     propertyId: string,
     status: ListableStatus = 'pending',
-  ): Promise<TenancyInterest[]> {
+  ): Promise<PrivacySafeInterest[]> {
     const client = this.requestContext.getClient();
     const callerId = this.requestContext.getUserId();
 

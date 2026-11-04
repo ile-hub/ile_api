@@ -1,5 +1,8 @@
 import {
   Body,
+  Delete,
+  Patch,
+  UploadedFile,
   Controller,
   Get,
   HttpCode,
@@ -10,10 +13,18 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FILE_LIMIT,
+  type UploadedAsset,
+} from '../common/private-storage.service';
 import type { EvidenceItem } from '@yourorg/ile-shared-types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RlsTransactionInterceptor } from '../common/rls-transaction.interceptor';
-import { SubmitEvidenceDto } from './dto/submit-evidence.dto';
+import {
+  SubmitEvidenceDto,
+  UpdateEvidenceDto,
+} from './dto/submit-evidence.dto';
 import { EvidenceService } from './evidence.service';
 
 // A renter's own evidence only. The caller needs a renter_profiles row
@@ -27,16 +38,55 @@ export class EvidenceController {
 
   @Post()
   async submit(@Body() body: SubmitEvidenceDto): Promise<EvidenceItem> {
-    return this.evidence.submitEvidence(
-      body.pillar,
-      body.pathwayType,
-      body.payload,
-    );
+    return this.evidence.submitEvidence(body);
   }
 
   @Get()
   async listMine(): Promise<EvidenceItem[]> {
     return this.evidence.listOwnEvidence();
+  }
+
+  @Get('catalogue')
+  async catalogue() {
+    return this.evidence.getCatalogue();
+  }
+
+  @Get('summary') summary() {
+    return this.evidence.summary();
+  }
+  @Patch(':id') update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateEvidenceDto,
+  ) {
+    return this.evidence.update(id, body);
+  }
+  @Delete(':id') remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.evidence.remove(id);
+  }
+  @Get(':id/documents') documents(@Param('id', ParseUUIDPipe) id: string) {
+    return this.evidence.documents(id);
+  }
+  @Post(':id/documents')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: FILE_LIMIT, files: 1 } }),
+  )
+  upload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: UploadedAsset,
+  ) {
+    return this.evidence.upload(id, file);
+  }
+  @Get(':id/documents/:documentId/download') download(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ) {
+    return this.evidence.download(id, documentId);
+  }
+  @Delete(':id/documents/:documentId') removeDocument(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ) {
+    return this.evidence.removeDocument(id, documentId);
   }
 
   @Get(':id')

@@ -7,7 +7,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import type { TenancyInterest } from '@yourorg/ile-shared-types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RlsTransactionInterceptor } from '../common/rls-transaction.interceptor';
 import { ListTenancyInterestsQueryDto } from './dto/tenancy-interest.dto';
@@ -26,7 +25,7 @@ export class PropertyTenancyInterestsController {
   async list(
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Query() query: ListTenancyInterestsQueryDto,
-  ): Promise<TenancyInterest[]> {
+  ) {
     return this.tenancyInterests.listForProperty(propertyId, query.status);
   }
 }

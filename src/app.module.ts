@@ -3,21 +3,32 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { CommonModule } from './common/common.module';
 import { DatabaseModule } from './database/database.module';
+import { ConnectionsModule } from './connections/connections.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { HealthModule } from './health/health.module';
+import { LandlordsModule } from './landlords/landlords.module';
 import { MeModule } from './me/me.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { ProfilesModule } from './profiles/profiles.module';
 import { PropertiesModule } from './properties/properties.module';
 import { TenancyInterestsModule } from './tenancy-interests/tenancy-interests.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      ignoreEnvFile: process.env.E2E_ISOLATED_LOCAL === '1',
+    }),
     CommonModule,
     DatabaseModule,
     HealthModule,
     MeModule,
+    ProfilesModule,
+    ConnectionsModule,
+    PrivacyModule,
     EvidenceModule,
     PropertiesModule,
+    LandlordsModule,
     TenancyInterestsModule,
   ],
   providers: [

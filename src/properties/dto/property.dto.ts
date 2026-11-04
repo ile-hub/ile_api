@@ -18,13 +18,22 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
+  IsObject,
 } from 'class-validator';
+
+import { PropertyDetailsDto } from './property-details.dto';
 
 // Bounds mirror the DB CHECK constraints (properties_bedrooms_range,
 // properties_rent_positive, properties_rules_known) so a bad value is a
 // 400 with a field message, not a 500 from a constraint violation.
 
 export class CreatePropertyDto implements CreatePropertyRequest {
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PropertyDetailsDto)
+  details?: PropertyDetailsDto;
   @IsOptional()
   @IsString()
   @MaxLength(120)
@@ -72,6 +81,11 @@ export class CreatePropertyDto implements CreatePropertyRequest {
 // (and rejected by IsString/IsInt)". title/description use IsOptional,
 // which does accept null -- clearing those is legitimate.
 export class UpdatePropertyDto implements UpdatePropertyRequest {
+  @ValidateIf((_, v: unknown) => v !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PropertyDetailsDto)
+  details?: PropertyDetailsDto;
   @IsOptional()
   @IsString()
   @MaxLength(120)

@@ -27,10 +27,9 @@ export class MeService {
 
   // Both profile joins are LEFT JOINs: exactly one matches for a renter or
   // landlord (handle_new_user creates it atomically at signup), neither
-  // for an admin role. renter_profiles is RLS-scoped, and its
-  // renter_sees_own_profile policy is what makes the caller's own row
-  // visible here. landlord_profiles has no RLS; the WHERE on users.id is
-  // what scopes it.
+  // for an admin role. Both profile tables are RLS-scoped to the caller's
+  // own row (renter_sees_own_profile / landlord_sees_own_profile), which
+  // is what makes them visible here.
   async getMe(): Promise<MeResponse> {
     const client = this.requestContext.getClient();
     const userId = this.requestContext.getUserId();

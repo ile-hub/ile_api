@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { Pool, PoolClient } from 'pg';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { assertIsolatedTarget } from './isolated-target';
 import { AppModule } from '../src/app.module';
 
 // These are real end-to-end tests: they need the local Supabase stack
@@ -12,9 +13,11 @@ import { AppModule } from '../src/app.module';
 // the app uses. Users are created through Supabase Auth itself, so every
 // request goes through the real JWKS-verified session token path and the
 // real handle_new_user signup trigger -- nothing is hand-minted.
-if (existsSync('.env')) {
+if (process.env.E2E_ISOLATED_LOCAL !== '1' && existsSync('.env')) {
   process.loadEnvFile('.env');
 }
+
+assertIsolatedTarget();
 
 function env(name: string): string {
   const value = process.env[name];

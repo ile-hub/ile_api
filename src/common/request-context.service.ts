@@ -6,6 +6,8 @@ import { PoolClient } from 'pg';
 export interface RequestContext {
   client: PoolClient;
   userId: string;
+  accessToken?: string;
+  rollbackActions?: (() => Promise<void>)[];
   role?: UserRole; // filled lazily by getRole()
 }
 
@@ -30,6 +32,20 @@ export class RequestContextService {
    * falling back would mean a query that was SUPPOSED to be RLS-scoped
    * quietly running as an unscoped connection instead.
    */
+  getAccessToken(): string {
+    const token = this.storage.getStore()?.accessToken;
+    if (!token)
+      throw new Error('Storage requires an authenticated request token');
+    return token;
+  }
+
+  onRollback(action: () => Promise<void>): void {
+    const actions = this.storage.getStore()?.rollbackActions;
+    if (!actions)
+      throw new Error('Storage mutation requires a request transaction');
+    actions.push(action);
+  }
+
   getClient(): PoolClient {
     const ctx = this.storage.getStore();
     if (!ctx) {

@@ -7,5 +7,7 @@
   "maxWorkers": 1,
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "globalSetup": "<rootDir>/e2e-cleanup.ts",
+  "globalTeardown": "<rootDir>/e2e-cleanup.ts"
 }

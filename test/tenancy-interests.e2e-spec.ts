@@ -77,9 +77,7 @@ describe('Tenancy interests (e2e)', () => {
           title: 'Bright two-bed flat',
           description: 'Close to the station.',
           propertyRules: ['no_smoking'],
-          addressLine1: '12 Example Street',
           city: 'Edinburgh',
-          postcode: 'EH1 1AA',
           bedrooms: 2,
           rentAmount: 1250.5,
           currency: 'GBP',
@@ -388,7 +386,7 @@ describe('Tenancy interests (e2e)', () => {
       expect(res.body.status).toBe('pending');
     });
 
-    it('keeps the row (property: null) when a renter can no longer see the property', async () => {
+    it('keeps the row (property: null, landlord name kept) when a renter can no longer see the property', async () => {
       const p = await property();
       const interest = await renterInterest(renter, p.id);
       await api(app, landlord).post(`/properties/${p.id}/archive`).expect(200);
@@ -397,7 +395,7 @@ describe('Tenancy interests (e2e)', () => {
         .expect(200);
       expect(res.body).toMatchObject({
         property: null,
-        counterparty: { displayName: null },
+        counterparty: { displayName: landlord.displayName },
       });
     });
   });

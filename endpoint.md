@@ -128,13 +128,17 @@ on, nobody can publish.
 
 ---
 
-## Landlord Profile (renter-facing) — NEW
+## Landlord Profile (renter-facing)
 
 | Method | Path | Purpose | Role | Status |
 |---|---|---|---|---|
-| GET | `/landlords/:id/profile` | Landlord's display name, company name, verification badge only | Renter | Pending |
+| GET | `/landlords/:id` | Public landlord profile: `{ id, displayName, memberSince, properties: [{ id, addressLine1, city, bedrooms, rentAmount }] }` — published properties only, newest first | Renter (landlords → 403) | **Built** |
 
-Deliberately minimal — no richer landlord-side data has been decided on yet.
+404 unless the landlord has at least one published property — the same 404 for
+unknown ids and non-landlords, so it never confirms a landlord exists beyond what the
+feed already shows. No email, phone, company name or verification status. Fields come
+from the `landlord_public_profile()` SECURITY DEFINER function; the property list is
+read under the renter's normal RLS (published rows only).
 
 ---
 

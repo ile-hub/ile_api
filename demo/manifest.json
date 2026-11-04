@@ -1,0 +1,317 @@
+{
+  "approved": true,
+  "unresolved": [
+    "Publishing requires non-null EPC and postcode district, nonempty registrationNumbers, and at least one uploaded photo. No EPC/registration claims or photographs supplied."
+  ],
+  "people": [
+    {
+      "key": "amina",
+      "role": "landlord",
+      "profile": {
+        "displayName": "Amina",
+        "bio": "I’m Amina. I manage three flats in Glasgow and I like to know the people who’ll be living in them. I’m straightforward about costs, responsive when something needs fixed, and I value open communication. I’m happy to consider different ways someone can demonstrate they can afford the rent.",
+        "tenancySuccess": "Clear communication, prompt repairs and a landlord who treats the flat as your home.",
+        "discoverable": true,
+        "locationsCovered": [
+          "Glasgow"
+        ],
+        "numberOfProperties": 3
+      }
+    },
+    {
+      "key": "david",
+      "role": "landlord",
+      "profile": {
+        "displayName": "David",
+        "bio": "I’ve been letting homes in Glasgow for eight years. I prefer longer-term tenancies and clear expectations from the start. I know not everyone has a standard 9–5 income, so I’m open to discussing how renters can show financial consistency.",
+        "tenancySuccess": "A well-maintained home, clear tenancy information and a direct point of contact.",
+        "discoverable": true,
+        "locationsCovered": [
+          "Glasgow"
+        ],
+        "numberOfProperties": 5
+      }
+    },
+    {
+      "key": "sarah",
+      "role": "landlord",
+      "profile": {
+        "displayName": "Sarah",
+        "bio": "I’m renting out my former home for the first time. I’m looking for someone who will enjoy the space and feel comfortable raising questions early. I’ll always be clear about what’s included and what happens next.",
+        "tenancySuccess": "An approachable landlord and a straightforward process without unnecessary back-and-forth.",
+        "discoverable": true,
+        "locationsCovered": [
+          "Glasgow"
+        ]
+      }
+    },
+    {
+      "key": "jamie",
+      "role": "renter",
+      "profile": {
+        "displayName": "Jamie",
+        "personalStory": "Home is my safe space, and I take real pride in looking after it. I value open communication with my landlord and would love somewhere bright where I can work from home a few days a week. I’m looking for a one-bedroom home, a November move and a longer tenancy.",
+        "bio": "Self-employed designer, Glasgow.",
+        "preferredLocation": "Glasgow",
+        "budgetMax": 1000,
+        "discoverable": true
+      },
+      "evidence": [
+        "affordability.self_employed_accounts",
+        "affordability.savings"
+      ]
+    },
+    {
+      "key": "priya",
+      "role": "renter",
+      "profile": {
+        "displayName": "Priya",
+        "personalStory": "I’m starting a research programme in Glasgow and looking for a stable place where I can settle into the city. My funding comes through a scholarship and savings, rather than monthly payslips. I’m organised, considerate in shared spaces and happy to provide university accommodation references. I’m looking for a studio or shared flat and a January move.",
+        "bio": "Postgraduate researcher, Glasgow.",
+        "preferredLocation": "Glasgow",
+        "budgetMax": 850,
+        "discoverable": true
+      },
+      "evidence": [
+        "affordability.scholarship_stipend",
+        "stability.study_duration",
+        "reliability.accommodation_reference"
+      ]
+    },
+    {
+      "key": "lewis",
+      "role": "renter",
+      "profile": {
+        "displayName": "Lewis",
+        "personalStory": "I’m moving into my first independent home after living with family. I work full-time, budget carefully, and want to have a good professional relationship with my landlord from day one. I don’t have a previous private tenancy reference yet, but I can share employment and character references. I’m looking for a one-bedroom or suitable shared flat and a December move.",
+        "bio": "Early-career renter, Glasgow.",
+        "preferredLocation": "Glasgow",
+        "budgetMax": 900,
+        "discoverable": true
+      },
+      "evidence": [
+        "stability.employment_duration",
+        "reliability.character_reference"
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "key": "amina-shawlands",
+      "owner": "amina",
+      "payload": {
+        "title": "Shawlands flat",
+        "description": "Bright living room and separate kitchen.",
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 1,
+        "rentAmount": 950,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Shawlands",
+          "propertyType": "flat",
+          "depositAmount": 950,
+          "availableFrom": "2026-11-01",
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 2,
+          "furnishing": "unfurnished",
+          "councilTaxBand": "C",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    },
+    {
+      "key": "amina-merchant-city",
+      "owner": "amina",
+      "payload": {
+        "title": "Merchant City Living",
+        "description": "A contemporary city-centre apartment with an open-plan living space, two double bedrooms and excellent access to public transport.",
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 2,
+        "rentAmount": 1250,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Merchant City",
+          "propertyType": "flat",
+          "furnishing": "furnished",
+          "availableFrom": "2026-12-01",
+          "depositAmount": 1250,
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 4,
+          "councilTaxBand": "D",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    },
+    {
+      "key": "amina-dennistoun",
+      "owner": "amina",
+      "payload": {
+        "title": "Dennistoun Corner Flat",
+        "description": "A well-kept one-bedroom flat with a spacious living room and modern bathroom, suitable for someone who wants to make the space their own.",
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 1,
+        "rentAmount": 825,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Dennistoun",
+          "propertyType": "flat",
+          "furnishing": "unfurnished",
+          "depositAmount": 825,
+          "availableFrom": "2026-11-15",
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 2,
+          "councilTaxBand": "B",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    },
+    {
+      "key": "david-partick",
+      "owner": "david",
+      "payload": {
+        "title": "Partick flat",
+        "description": null,
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 2,
+        "rentAmount": 1250,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Partick",
+          "propertyType": "flat",
+          "depositAmount": 1250,
+          "availableFrom": "2026-12-01",
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 4,
+          "furnishing": "furnished",
+          "councilTaxBand": "D",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    },
+    {
+      "key": "david-shawlands",
+      "owner": "david",
+      "payload": {
+        "title": "Shawlands Garden Flat",
+        "description": "A welcoming ground-floor flat with a spacious bedroom, a peaceful outlook and a modern kitchen. Great for someone who enjoys a quieter home environment.",
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 1,
+        "rentAmount": 950,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Shawlands",
+          "propertyType": "flat",
+          "furnishing": "furnished",
+          "depositAmount": 950,
+          "availableFrom": "2026-11-15",
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 2,
+          "councilTaxBand": "C",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    },
+    {
+      "key": "david-finnieston",
+      "owner": "david",
+      "payload": {
+        "title": "Finnieston Loft",
+        "description": "A stylish apartment with an open-plan living area and flexible second bedroom, suitable for sharers or someone who works from home.",
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 2,
+        "rentAmount": 1150,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Finnieston",
+          "propertyType": "flat",
+          "furnishing": "furnished",
+          "availableFrom": "2026-11-20",
+          "depositAmount": 1150,
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 4,
+          "councilTaxBand": "D",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    },
+    {
+      "key": "sarah-dennistoun",
+      "owner": "sarah",
+      "payload": {
+        "title": "Dennistoun flat",
+        "description": null,
+        "addressLine1": "SYNTHETIC PLACEHOLDER - NOT AN ADDRESS",
+        "city": "Glasgow",
+        "postcode": "DEMO",
+        "bedrooms": 1,
+        "rentAmount": 875,
+        "propertyRules": [],
+        "details": {
+          "publicArea": "Dennistoun",
+          "propertyType": "flat",
+          "depositAmount": 875,
+          "availableFrom": "2026-11-01",
+          "minTenancyMonths": 6,
+          "bathrooms": 1,
+          "permittedOccupants": 2,
+          "furnishing": "unfurnished",
+          "councilTaxBand": "C",
+          "hmoLicenceStatus": "unknown",
+          "epcRating": null,
+          "registrationNumbers": [],
+          "registrationDetails": "Synthetic demonstration only. Registration not provided or verified.",
+          "hmoLicenceDetails": "Unknown; no licensing assertion."
+        }
+      },
+      "photos": []
+    }
+  ]
+}

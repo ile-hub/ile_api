@@ -10,7 +10,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import type { TenancyInterest } from '@yourorg/ile-shared-types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RlsTransactionInterceptor } from '../common/rls-transaction.interceptor';
 import {
@@ -29,9 +28,7 @@ export class TenancyInterestsController {
   constructor(private readonly tenancyInterests: TenancyInterestsService) {}
 
   @Post()
-  async expressInterest(
-    @Body() body: ExpressInterestDto,
-  ): Promise<TenancyInterest> {
+  async expressInterest(@Body() body: ExpressInterestDto) {
     return this.tenancyInterests.expressInterest(
       body.propertyId,
       body.renterId,
@@ -40,24 +37,18 @@ export class TenancyInterestsController {
 
   @Post(':id/decline')
   @HttpCode(200)
-  async decline(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<TenancyInterest> {
+  async decline(@Param('id', ParseUUIDPipe) id: string) {
     return this.tenancyInterests.decline(id);
   }
 
   // Declared before ':id' so 'me' isn't parsed as an id.
   @Get('me')
-  async listMine(
-    @Query() query: ListTenancyInterestsQueryDto,
-  ): Promise<TenancyInterest[]> {
+  async listMine(@Query() query: ListTenancyInterestsQueryDto) {
     return this.tenancyInterests.listMine(query.status);
   }
 
   @Get(':id')
-  async getOne(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<TenancyInterest> {
+  async getOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.tenancyInterests.getById(id);
   }
 }
