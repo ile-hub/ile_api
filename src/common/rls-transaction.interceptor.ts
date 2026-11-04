@@ -1,9 +1,11 @@
+import { DemoPreviewService } from './demo-preview.service';
 import {
   CallHandler,
   ExecutionContext,
   Inject,
   Injectable,
   NestInterceptor,
+  Logger,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Pool } from 'pg';
@@ -26,9 +28,11 @@ import { RequestContextService } from './request-context.service';
 // leak onto a pooled connection a DIFFERENT user's request picks up next.
 @Injectable()
 export class RlsTransactionInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(RlsTransactionInterceptor.name);
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly context: RequestContextService,
+    private readonly demo: DemoPreviewService,
   ) {}
 
   intercept(
@@ -47,14 +51,18 @@ export class RlsTransactionInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    return from(this.runInTransaction(userId, next));
+    return from(
+      this.runInTransaction(userId, next, req.headers.authorization?.slice(7)),
+    );
   }
 
   private async runInTransaction(
     userId: string,
     next: CallHandler,
+    accessToken?: string,
   ): Promise<unknown> {
     const client = await this.pool.connect();
+    const rollbackActions: (() => Promise<void>)[] = [];
     try {
       await client.query('BEGIN');
       // set_config(), not string-built `SET LOCAL app.current_user_id =
@@ -67,14 +75,26 @@ export class RlsTransactionInterceptor implements NestInterceptor {
       ]);
 
       const result = await this.context.run<Promise<unknown>>(
-        { client, userId },
-        () => firstValueFrom(next.handle() as Observable<unknown>),
+        { client, userId, accessToken, rollbackActions },
+        async () => {
+          await this.demo.activateTransaction();
+          return firstValueFrom(next.handle() as Observable<unknown>);
+        },
       );
 
       await client.query('COMMIT');
       return result;
     } catch (err) {
       await client.query('ROLLBACK').catch(() => undefined);
+      for (const action of rollbackActions.reverse()) {
+        try {
+          await action();
+        } catch {
+          this.logger.error(
+            'Private storage upload compensation failed; storage maintenance is required',
+          );
+        }
+      }
       throw err;
     } finally {
       client.release();

@@ -1,0 +1,93 @@
+The main thing for me is that the demo currently feels like a series of forms. I want someone watching it to immediately understand the difference btw Leri and other platforms: people discover each other based on compatibility, see the person behind the paperwork, and choose whether to connect. We need that experience to be visible, not just explained.
+1. Branding and overall feel — both landlord and renter screens 
+Please use the actual Lérí logo and the visual style we used on the webpage. 
+Bring in the hand-drawn yellow underline/scribble and a few small house or sun doodles where they make sense. 
+Please make the profile cards much more visual: real-looking profile photos, stronger headings, readable bios, property photos, and clear calls to action. We can use stock photos or AI-generated fictional faces for demo accounts.
+2. Welcome and sign-up — both PDFs, pages 2–4
+On “Welcome back”, please replace 
+“Meet renters and landlords as people, and find a tenancy that works for you.” 
+with 
+“Better renting connections start here.” Subtext: “Discover people who fit what you’re looking for... without the guesswork.”
+
+On “Create a profile”page, please remove “Renting works better when people vouch for people.” It doesn’t apply to Leri
+Change to: “Renting works better when trust goes both ways.” Subtext: “Tell us who you are, what matters to you and what you’re looking for. We’ll help you discover compatible people.”
+
+“Privacy, terms and your choices” currently leads to “Something went wrong” because the legal content is not configured. Can we just have placeholder Privacy, terms and your choices (confirm you’ve read and agree just for demo purposes.
+3. Discovery needs to come alive — both PDFs, pages 5–6 (highest priority)
+We discussed creating sample renter and landlord profiles at our last call. Can we please populate Suggested for You AND Explore All with realistic demo accounts? At the moment both are empty, so the audience can’t see the central Lérí experience.
+Landlords should see renter cards with a face, first name, short story, preferred area, budget, move-in timing, and a few evidence highlights. Renters should see landlord cards with a face, short introduction, letting approach and a preview of available homes.
+Suggested for You should explain compatibility in plain language, for example, “Your Glasgow flat is within Jamie’s budget” or “Both of you are looking for a longer tenancy”. 
+Keep Explore All genuinely open. Our suggestions should help discovery, not digitally exclude people who don’t fit a narrow checklist. No automatic rejection based on missing preferred evidence.
+Renters must discover landlords, not a public pool of property listings. Property photos/details should sit INSIDE the landlord profile. “Request to Connect” should happen from the landlord/person profile, not as a direct property application.
+4. Show the connection journey — both PDFs, pages 7–9
+Can we please seed the demo with at least one incoming request, one outgoing request and one accepted connection? The three empty tabs don’t demonstrate the product.
+The action should be “Request to Connect”, with space for a short personal note explaining why someone wants to connect.
+Show the other person accepting, followed by “You’re Connected!” with a small handshake or pinky-promise visual, NOT a heart or dating-app “match” screen. Then show a short conversation and a viewing being discussed.
+Keep the clarification that connecting does not reserve a home or create a tenancy. That line is useful.
+“Connections — A place to get to know each other” could be clearer as “Your introductions and conversations, all in one place.”
+5. Profile creation and public previews — both PDFs, pages 10–12 and 20–21/23–24
+Please replace “Test Landlord” and “Test Renter” with fully written sample profiles. A public profile preview needs to look like the finished public-facing experience: portrait, name, location, bio, practical preferences, evidence summary and relevant properties. At present the previews mainly show empty or unverified fields.
+The “Public portrait HTTPS URL” field is not something a normal user should have to deal with. Please make it a straightforward “Add profile photo” button using photo library/camera and a visible preview. The “Choose a local photo draft” wording also sounds technical. If upload isn’t wired up yet, demo photos can be preloaded, but please make that clear internally.
+For landlords, I like “What can a great tenant expect from you as a landlord?” — please keep it prominent. For renters, “Beyond the paperwork, why would you make a great tenant?” is much closer to our identity than a generic bio box. These should be among the first things someone sees on a public profile.
+6. Sample landlord profiles to add. PLEASE SHOW THEM ALL AS VERIFIED
+A. Amina — independent landlord, Glasgow Southside
+Photo: warm, professional portrait. Bio: “I’m Amina. I manage two flats in Glasgow and I like to know the people who’ll be living in them. I’m straightforward about costs, responsive when something needs fixed, and I value open communication. I’m happy to consider different ways someone can demonstrate they can afford the rent.”
+Property numbers – 35 around Glasgow
+What tenants can expect: “Clear communication, prompt repairs and a landlord who treats the flat as your home.” 
+Vacant Properties: 1-bed flat, Shawlands, £950/month; available November; bright living room and separate kitchen. Use sample photos.
+
+Property 2 — Merchant City Living, Merchant City, Glasgow · 2 bedrooms · Furnished, £1,250/month, Available from 1 December 2026
+A contemporary city-centre apartment with an open-plan living space, two double bedrooms and excellent access to public transport.
+
+Property 3 — Dennistoun Corner Flat
+Dennistoun, Glasgow · 1 bedroom · Unfurnished, £825/month, 
+A well-kept one-bedroom flat with a spacious living room and modern bathroom, suitable for someone who wants to make the space their own.
+B. David — small portfolio landlord, Glasgow West End
+Bio: “I’ve been letting homes in Glasgow for eight years. I prefer longer-term tenancies and clear expectations from the start. I know not everyone has a standard 9–5 income, so I’m open to discussing how renters can show financial consistency.”
+Property numbers – around 100
+What tenants can expect: “A well-maintained home, clear tenancy information and a direct point of contact.” 
+Vacant Properties: 2-bed flat, Partick, £1,250/month; available December.
+
+Property 2 — Shawlands Garden Flat
+Shawlands, Glasgow · 1 bedroom · Furnished £950/month
+A welcoming ground-floor flat with a spacious bedroom, a peaceful outlook and a modern kitchen. Great for someone who enjoys a quieter home environment.
+
+Property 3 — Finnieston Loft
+Finnieston, Glasgow · 2 bedrooms · Furnished £1,150/month, Available from 20 November 2026
+A stylish apartment with an open-plan living area and flexible second bedroom, suitable for sharers or someone who works from home.
+C. Sarah — first-time landlord, Dennistoun
+Bio: “I’m renting out my former home for the first time. I’m looking for someone who will enjoy the space and feel comfortable raising questions early. I’ll always be clear about what’s included and what happens next.”
+What tenants can expect: “An approachable landlord and a straightforward process without unnecessary back-and-forth.” Property: 1-bed flat, Dennistoun, £875/month; available November.
+7. Sample renter profiles to add
+A. Jamie — self-employed designer, Glasgow
+Budget: up to £1,000/month; looking for a 1-bed flat; move-in November; prefers a longer tenancy. “Why I’ll make a great tenant”: “Home is my safe space, and I take real pride in looking after it. I’m a self-employed designer earning around £2,400 a month on average, and I plan ahead for quieter periods — I keep a savings buffer covering up to six months of expenses. I value open communication with my landlord and would love somewhere bright where I can work from home a few days a week.”
+Evidence highlights: self-employment income records, savings information and a previous housing reference. No actual financial documents shown publicly.
+B. Priya — postgraduate researcher, Glasgow
+Budget: up to £850/month; looking for a studio or shared flat; move-in January. “I’m starting a research programme in Glasgow and looking for a stable place where I can settle into the city. My funding comes through a scholarship and savings, rather than monthly payslips. I’m organised, considerate in shared spaces and happy to provide university accommodation references.”
+Evidence highlights: scholarship funding, enrolment confirmation, accommodation reference.
+C. Lewis — early-career renter, Glasgow
+Budget: up to £900/month; looking for a 1-bed or suitable shared flat; move-in December. “I’m moving into my first independent home after living with family. I work full-time, budget carefully, and want to have a good professional relationship with my landlord from day one. I don’t have a previous private tenancy reference yet, but I can share employment and character references.”
+Evidence highlights: employment confirmation, income evidence, character reference. Don’t penalise him for not having rental history.
+8. ARCS — useful, but it should support the connection (landlord pages 15–18; renter pages 15–20)
+The current ARCS screens take up a lot of space and feel more technical than the rest of the app. We need the four strands to be understandable without making people feel scored or judged. Compatibility is our main innovation; ARCS is one way we help people share and understand relevant evidence.
+For landlords, please don’t present the four ARCS categories as a rigid ranking that determines who gets seen. We discussed selecting a small number (up to five) of preferred evidence types as preferences, not compulsory eligibility hurdles. Property-specific practical requirements can be separate.
+The “Accept / Prefer / Not needed” controls need a short explanation that not having a preferred document does not automatically rule out a renter. 
+For renters, shorten the technical paragraphs about unsaved drafts and Phase 3. For example: “Choose the evidence that best reflects your circumstances. You don’t need every type of document.”
+Community should be about community ties and support — universities, clubs, professional networks, volunteering, references and support arrangements — not “how you fit the household”. Household preferences are separate.
+Please show a populated, readable summary on renter profiles, not four empty ARCS boxes. Private files must remain private; the public profile should show only appropriate evidence types/statuses.
+9. Properties — landlord PDF, pages 23–24
+“Add your first one to start receiving applicants” is not right for Lérí. We are not a blanket-application property portal. Please change it to “Add a property so we can help you discover compatible renters.”
+The property form currently looks very bare. For the demo, please include at least one completed property with good photos, rent, deposit, area, availability, bedrooms, bathrooms, furnishing, and a short description. EPC/HMO details can be included where relevant. Keep exact addresses private until appropriate.
+“No pets”, “No smoking” and “Sharers OK” are too prominent as the only property rules. Please present lawful, relevant property details and avoid suggesting blanket exclusions as a core Lérí feature.
+10. Verification, privacy and demo honesty — both sides
+I appreciate that the PDFs are clear about what is and isn’t functional. But i wanted to clarify all the technical explanations won’t be in the demo right...
+For the showcase, please use synthetic information only. No real ID, bank statements, addresses or personal documents in the test accounts.
+11. What I’d like us to prioritise before the event
+1. Apply the actual logo and landing-page visual identity across both journeys.
+2. Populate 3 landlords, 3 renters and 2–3 sample properties, all with photos and stories.
+3. Make Suggested for You and Explore All show real-looking profile cards with clear reasons for suggested compatibility.
+4. Show a complete Request to Connect → accept → You’re Connected → chat/viewing flow.
+5. Replace the technical portrait URL fields with normal photo upload controls and make public previews feel finished.
+6. Fix the registration legal-content error and hide Expo/developer controls for presentation.
+7. Clean up misleading copy, especially “vouch for people”, “applicants”, and ARCS language that suggests rigid screening.
+I’m not expecting every backend integration to be complete for the showcase. I’d rather have one believable, polished journey that clearly demonstrates why Lérí is different. Thanks again for getting us this far. I think these changes will make a big difference to how people understand the product when we show it live.

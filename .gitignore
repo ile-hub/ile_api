@@ -3,3 +3,6 @@ dist
 coverage
 .env
 *.local
+
+# Local synthetic demo imagery; do not commit without explicit approval.
+/demo/assets/

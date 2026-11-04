@@ -1,39 +1,35 @@
 import {
-  BadRequestException,
   Body,
+  Delete,
+  Patch,
+  UploadedFile,
   Controller,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Post,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FILE_LIMIT,
+  type UploadedAsset,
+} from '../common/private-storage.service';
+import type { EvidenceItem } from '@yourorg/ile-shared-types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RlsTransactionInterceptor } from '../common/rls-transaction.interceptor';
-import { EvidenceService, TrustPillar } from './evidence.service';
+import {
+  SubmitEvidenceDto,
+  UpdateEvidenceDto,
+} from './dto/submit-evidence.dto';
+import { EvidenceService } from './evidence.service';
 
-const VALID_PILLARS: readonly TrustPillar[] = [
-  'community',
-  'affordability',
-  'reliability',
-  'stability',
-];
-
-interface SubmitEvidenceBody {
-  pillar: string;
-  pathwayType: string;
-  payload: unknown;
-}
-
-// NOTE: this endpoint is a stand-in to prove the auth-guard + RLS
-// transaction-interceptor wiring end-to-end, ahead of the real identity
-// slice (Supabase signup -> users row provisioning) that will normally be
-// what puts a matching public.users/renter_profiles row in place for
-// req.user.id before this route is ever hit. Until that exists, whoever
-// calls this needs a users/renter_profiles row with the same id as the
-// JWT's `sub` already present, or the INSERT's WITH CHECK will correctly
-// reject it (renter_profiles has no row to satisfy the evidence_items FK).
+// A renter's own evidence only. The caller needs a renter_profiles row
+// (created at signup by handle_new_user) for the INSERT's FK + WITH CHECK
+// to accept the row; a landlord's submission is rejected by the database.
 @Controller('evidence')
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(RlsTransactionInterceptor)
@@ -41,29 +37,60 @@ export class EvidenceController {
   constructor(private readonly evidence: EvidenceService) {}
 
   @Post()
-  async submit(@Body() body: SubmitEvidenceBody) {
-    if (!VALID_PILLARS.includes(body?.pillar as TrustPillar)) {
-      throw new BadRequestException(
-        `pillar must be one of: ${VALID_PILLARS.join(', ')}`,
-      );
-    }
-    if (!body?.pathwayType) {
-      throw new BadRequestException('pathwayType is required');
-    }
-    return this.evidence.submitEvidence(
-      body.pillar as TrustPillar,
-      body.pathwayType,
-      body.payload,
-    );
+  async submit(@Body() body: SubmitEvidenceDto): Promise<EvidenceItem> {
+    return this.evidence.submitEvidence(body);
   }
 
   @Get()
-  async listMine() {
+  async listMine(): Promise<EvidenceItem[]> {
     return this.evidence.listOwnEvidence();
   }
 
+  @Get('catalogue')
+  async catalogue() {
+    return this.evidence.getCatalogue();
+  }
+
+  @Get('summary') summary() {
+    return this.evidence.summary();
+  }
+  @Patch(':id') update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateEvidenceDto,
+  ) {
+    return this.evidence.update(id, body);
+  }
+  @Delete(':id') remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.evidence.remove(id);
+  }
+  @Get(':id/documents') documents(@Param('id', ParseUUIDPipe) id: string) {
+    return this.evidence.documents(id);
+  }
+  @Post(':id/documents')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: FILE_LIMIT, files: 1 } }),
+  )
+  upload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: UploadedAsset,
+  ) {
+    return this.evidence.upload(id, file);
+  }
+  @Get(':id/documents/:documentId/download') download(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ) {
+    return this.evidence.download(id, documentId);
+  }
+  @Delete(':id/documents/:documentId') removeDocument(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ) {
+    return this.evidence.removeDocument(id, documentId);
+  }
+
   @Get(':id')
-  async getOne(@Param('id') id: string) {
+  async getOne(@Param('id', ParseUUIDPipe) id: string): Promise<EvidenceItem> {
     const item = await this.evidence.getEvidenceById(id);
     if (!item) {
       throw new NotFoundException();
@@ -76,7 +103,10 @@ export class EvidenceController {
   // submitted->withdrawn only. There is deliberately no route that lets a
   // caller set status to anything else.
   @Post(':id/withdraw')
-  async withdraw(@Param('id') id: string) {
+  @HttpCode(200)
+  async withdraw(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<EvidenceItem> {
     const item = await this.evidence.withdrawEvidence(id);
     if (!item) {
       throw new NotFoundException();

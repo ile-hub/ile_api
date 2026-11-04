@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { UserRole } from '@yourorg/ile-shared-types';
 import { PoolClient } from 'pg';
 
 export interface RequestContext {
   client: PoolClient;
   userId: string;
+  accessToken?: string;
+  rollbackActions?: (() => Promise<void>)[];
+  role?: UserRole; // filled lazily by getRole()
 }
 
 // Carries the ONE PoolClient checked out for the current request through
@@ -28,6 +32,20 @@ export class RequestContextService {
    * falling back would mean a query that was SUPPOSED to be RLS-scoped
    * quietly running as an unscoped connection instead.
    */
+  getAccessToken(): string {
+    const token = this.storage.getStore()?.accessToken;
+    if (!token)
+      throw new Error('Storage requires an authenticated request token');
+    return token;
+  }
+
+  onRollback(action: () => Promise<void>): void {
+    const actions = this.storage.getStore()?.rollbackActions;
+    if (!actions)
+      throw new Error('Storage mutation requires a request transaction');
+    actions.push(action);
+  }
+
   getClient(): PoolClient {
     const ctx = this.storage.getStore();
     if (!ctx) {
@@ -47,5 +65,29 @@ export class RequestContextService {
       );
     }
     return ctx.userId;
+  }
+
+  /**
+   * The caller's users.role, looked up once per request. Read from
+   * public.users rather than the JWT's `role` claim -- Supabase sets that
+   * claim to 'authenticated' for every signed-in user, not the app role.
+   * users has no RLS, so this is exact. undefined means no users row
+   * exists for the session's sub.
+   */
+  async getRole(): Promise<UserRole | undefined> {
+    const ctx = this.storage.getStore();
+    if (!ctx) {
+      throw new Error(
+        'RequestContextService.getRole() called outside an RLS-scoped request.',
+      );
+    }
+    if (!('role' in ctx)) {
+      const result = await ctx.client.query<{ role: UserRole }>(
+        'SELECT role FROM users WHERE id = $1',
+        [ctx.userId],
+      );
+      ctx.role = result.rows[0]?.role;
+    }
+    return ctx.role;
   }
 }

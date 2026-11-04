@@ -1,0 +1,20 @@
+{
+  "project": "leri-phase2-validation-20261014-final",
+  "accounts": {
+    "amina": "33144328-594b-4c09-9eeb-2913c2c39b0f",
+    "david": "bbc84e2a-5e68-47d7-8ce2-69b218d3d550",
+    "sarah": "b47ba3cc-7aa1-439a-9df6-b1e68fc92457",
+    "jamie": "5271e678-d8ee-4f23-81b7-29e1dd9b0b3c",
+    "priya": "835b4e68-5ad7-4069-ad56-e15b6cf4a063",
+    "lewis": "56fa85f3-eb9b-4203-a763-2a7863569f36"
+  },
+  "properties": {
+    "65ed0783-8f5e-464b-9300-033a80f4aba5": "amina",
+    "8b630e59-06f8-4c34-adf6-cee09dec0924": "amina",
+    "cf2d559d-cecd-4009-a878-68d37a7453b1": "amina",
+    "734630cc-320f-4b74-9c05-9fa74afd0921": "david",
+    "61959473-5da7-48e5-a652-33ccb689f8c4": "david",
+    "51a1b692-42c1-4cb9-be21-c552bdd6193c": "david",
+    "7b5520c0-1f72-4006-94de-333a8cfd9bd1": "sarah"
+  }
+}
